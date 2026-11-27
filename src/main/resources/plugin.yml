@@ -1,20 +1,20 @@
 
 name: VoidPortal
-version: 1.0.0
+version: 1.1.0
 main: me.voidportal.VoidPortal
 api-version: '1.21'
 author: AimVortex
-description: Animated purple portal plugin for Paper
+description: Custom animated portals with magical effects and selection tools
 
 commands:
   portal:
     description: Manage VoidPortal portals
-    usage: /portal <create|remove|setdestination|list|reload>
+    usage: /portal <create|link|remove|size|innersize|setdestination|list|reload>
     aliases:
       - vportal
 
 permissions:
   voidportal.admin:
-    description: Allows managing VoidPortal portals
+    description: Allows managing VoidPortal portals and portal selectors
     default: op
     
