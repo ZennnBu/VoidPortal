@@ -5,67 +5,56 @@ import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
-import org.bukkit.configuration.file.FileConfiguration;
 
 public final class PortalEffect {
 
     private PortalEffect() {
     }
 
+    // Backward-compatible method for the existing main class
     public static void spawn(Location center, long tick) {
+        spawn(center, tick, 16.0, 2.5, 180);
+    }
+
+    public static void spawn(
+            Location center,
+            long tick,
+            double outerRadius,
+            double innerRadius,
+            int particleCount
+    ) {
         if (center == null || center.getWorld() == null) {
             return;
         }
 
-        VoidPortal plugin = VoidPortal.getPlugin(VoidPortal.class);
-        FileConfiguration config = plugin.getConfig();
-
         World world = center.getWorld();
 
-        // Configurable ring sizes
-        double outerRadius = config.getDouble(
-                "portal.outer-radius",
-                16.0
-        );
-
-        double innerRadius = config.getDouble(
-                "portal.inner-radius",
-                2.5
-        );
-
-        int particleCount = config.getInt(
-                "portal.particle-count",
-                220
-        );
-
-        int red = config.getInt("portal.red", 255);
-        int green = config.getInt("portal.green", 225);
-        int blue = config.getInt("portal.blue", 190);
-
-        // Keep settings within safe limits
         outerRadius = Math.max(3.0, Math.min(outerRadius, 64.0));
-        innerRadius = Math.max(0.5, Math.min(innerRadius, outerRadius - 1.0));
-        particleCount = Math.max(40, Math.min(particleCount, 360));
+        innerRadius = Math.max(
+                0.5,
+                Math.min(innerRadius, outerRadius - 0.5)
+        );
+
+        particleCount = Math.max(80, Math.min(particleCount, 360));
 
         Particle.DustOptions outerDust = new Particle.DustOptions(
-                Color.fromRGB(red, green, blue),
+                Color.fromRGB(255, 230, 195),
                 1.5F
         );
 
         Particle.DustOptions innerDust = new Particle.DustOptions(
-                Color.fromRGB(190, 90, 255),
+                Color.fromRGB(185, 65, 255),
                 1.4F
         );
 
-        Particle.DustOptions glowDust = new Particle.DustOptions(
-                Color.fromRGB(255, 250, 230),
+        Particle.DustOptions brightDust = new Particle.DustOptions(
+                Color.fromRGB(255, 250, 235),
                 1.2F
         );
 
-        // Ground-level ring center
-        Location groundCenter = center.clone().add(0, 0.15, 0);
+        Location groundCenter = center.clone().add(0, 0.12, 0);
 
-        // Large irregular outer ring
+        // Large irregular ground ring
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.PI * 2.0 * i / particleCount;
 
@@ -91,22 +80,26 @@ public final class PortalEffect {
                     outerDust
             );
 
-            // Bright accents around the perimeter
             if (i % 4 == 0) {
                 world.spawnParticle(
                         Particle.END_ROD,
                         point,
                         1,
-                        0.015,
+                        0.02,
                         0.025,
-                        0.015,
+                        0.02,
                         0
                 );
             }
         }
 
-        // Small circular ring around the center
-        int innerCount = 64;
+        // Inner purple ring
+        int innerCount = Math.max(
+                48,
+                (int) (innerRadius * 24.0)
+        );
+
+        innerCount = Math.min(innerCount, 160);
 
         for (int i = 0; i < innerCount; i++) {
             double angle = Math.PI * 2.0 * i / innerCount
@@ -132,9 +125,9 @@ public final class PortalEffect {
             );
         }
 
-        // Subtle energy vortex at the center
-        for (int i = 0; i < 24; i++) {
-            double progress = i / 24.0;
+        // Subtle center vortex
+        for (int i = 0; i < 28; i++) {
+            double progress = i / 28.0;
 
             double angle = progress * Math.PI * 4.0
                     + tick * 0.035;
@@ -165,7 +158,7 @@ public final class PortalEffect {
                         0,
                         0,
                         0,
-                        glowDust
+                        brightDust
                 );
             }
         }
