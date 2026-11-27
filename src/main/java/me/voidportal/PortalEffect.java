@@ -6,13 +6,15 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
 
+import java.util.Locale;
+
 public final class PortalEffect {
 
     private PortalEffect() {
     }
 
     public static void spawn(Location center, long tick) {
-        spawn(center, tick, 16.0, 2.5, 180);
+        spawn(center, tick, 16.0, 2.5, 180, "dark_purple");
     }
 
     public static void spawn(
@@ -21,6 +23,24 @@ public final class PortalEffect {
             double outerRadius,
             double innerRadius,
             int particleCount
+    ) {
+        spawn(
+                center,
+                tick,
+                outerRadius,
+                innerRadius,
+                particleCount,
+                "dark_purple"
+        );
+    }
+
+    public static void spawn(
+            Location center,
+            long tick,
+            double outerRadius,
+            double innerRadius,
+            int particleCount,
+            String glowColor
     ) {
         if (center == null || center.getWorld() == null) {
             return;
@@ -36,30 +56,35 @@ public final class PortalEffect {
 
         particleCount = Math.max(80, Math.min(particleCount, 360));
 
-        Particle.DustOptions goldDust = new Particle.DustOptions(
-                Color.fromRGB(255, 225, 170), 1.5F
-        );
+        Color selectedColor = getColor(glowColor);
 
-        Particle.DustOptions purpleDust = new Particle.DustOptions(
-                Color.fromRGB(185, 65, 255), 1.4F
-        );
+        Particle.DustOptions outerDust =
+                new Particle.DustOptions(selectedColor, 1.5F);
 
-        Particle.DustOptions brightDust = new Particle.DustOptions(
-                Color.fromRGB(255, 250, 235), 1.2F
-        );
+        Particle.DustOptions innerDust =
+                new Particle.DustOptions(selectedColor, 1.4F);
 
-        Particle.DustOptions runeDust = new Particle.DustOptions(
-                Color.fromRGB(220, 170, 255), 1.1F
-        );
+        Particle.DustOptions brightDust =
+                new Particle.DustOptions(
+                        Color.fromRGB(255, 250, 235),
+                        1.2F
+                );
+
+        Particle.DustOptions runeDust =
+                new Particle.DustOptions(selectedColor, 1.1F);
 
         Location base = center.clone().add(0, 0.12, 0);
 
-        // 1. Irregular outer ground ring
+        // 1. Animated outer ground ring
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.PI * 2.0 * i / particleCount;
 
-            double wave1 = Math.sin(angle * 5.0 + tick * 0.01) * 0.45;
-            double wave2 = Math.cos(angle * 9.0 - tick * 0.008) * 0.25;
+            double wave1 =
+                    Math.sin(angle * 5.0 + tick * 0.01) * 0.45;
+
+            double wave2 =
+                    Math.cos(angle * 9.0 - tick * 0.008) * 0.25;
+
             double wave3 = Math.sin(angle * 13.0) * 0.12;
 
             double radius = outerRadius + wave1 + wave2 + wave3;
@@ -71,18 +96,23 @@ public final class PortalEffect {
             );
 
             world.spawnParticle(
-                    Particle.DUST, point, 1,
-                    0, 0, 0, 0, goldDust
+                    Particle.DUST,
+                    point,
+                    1,
+                    0, 0, 0, 0,
+                    outerDust
             );
 
             if (i % 4 == 0) {
                 world.spawnParticle(
-                        Particle.END_ROD, point, 1,
-                        0.02, 0.025, 0.02, 0
+                        Particle.END_ROD,
+                        point,
+                        1,
+                        0.02, 0.025, 0.02,
+                        0
                 );
             }
 
-            // Lightning-style energy sparks around the outer ring
             if (i % 12 == 0) {
                 world.spawnParticle(
                         Particle.ELECTRIC_SPARK,
@@ -129,7 +159,7 @@ public final class PortalEffect {
             );
         }
 
-        // 3. Inner purple ring
+        // 3. Inner glow ring
         int innerCount = Math.max(
                 48,
                 (int) (innerRadius * 24.0)
@@ -151,8 +181,11 @@ public final class PortalEffect {
             );
 
             world.spawnParticle(
-                    Particle.DUST, point, 1,
-                    0, 0, 0, 0, purpleDust
+                    Particle.DUST,
+                    point,
+                    1,
+                    0, 0, 0, 0,
+                    innerDust
             );
 
             if (i % 8 == 0) {
@@ -191,14 +224,42 @@ public final class PortalEffect {
 
             if (i % 4 == 0) {
                 world.spawnParticle(
-                        Particle.DUST, point, 1,
-                        0, 0, 0, 0, brightDust
+                        Particle.DUST,
+                        point,
+                        1,
+                        0, 0, 0, 0,
+                        brightDust
                 );
             }
         }
     }
 
-    // Activation shockwave - called by VoidPortal.java
+    public static Color getColor(String name) {
+        if (name == null) {
+            return Color.fromRGB(185, 65, 255);
+        }
+
+        return switch (name.toLowerCase(Locale.ROOT)) {
+            case "black" -> Color.fromRGB(0, 0, 0);
+            case "dark_blue" -> Color.fromRGB(0, 0, 170);
+            case "dark_green" -> Color.fromRGB(0, 170, 0);
+            case "dark_aqua" -> Color.fromRGB(0, 170, 170);
+            case "dark_red" -> Color.fromRGB(170, 0, 0);
+            case "dark_purple" -> Color.fromRGB(170, 0, 170);
+            case "gold" -> Color.fromRGB(255, 170, 0);
+            case "gray" -> Color.fromRGB(170, 170, 170);
+            case "dark_gray" -> Color.fromRGB(85, 85, 85);
+            case "blue" -> Color.fromRGB(85, 85, 255);
+            case "green" -> Color.fromRGB(85, 255, 85);
+            case "aqua" -> Color.fromRGB(85, 255, 255);
+            case "red" -> Color.fromRGB(255, 85, 85);
+            case "light_purple" -> Color.fromRGB(255, 85, 255);
+            case "yellow" -> Color.fromRGB(255, 255, 85);
+            case "white" -> Color.fromRGB(255, 255, 255);
+            default -> Color.fromRGB(185, 65, 255);
+        };
+    }
+
     public static void spawnActivation(
             Location center,
             double radius
@@ -211,9 +272,11 @@ public final class PortalEffect {
 
         radius = Math.max(1.0, Math.min(radius, 64.0));
 
-        Particle.DustOptions shockDust = new Particle.DustOptions(
-                Color.fromRGB(190, 80, 255), 2.0F
-        );
+        Particle.DustOptions shockDust =
+                new Particle.DustOptions(
+                        Color.fromRGB(190, 80, 255),
+                        2.0F
+                );
 
         for (int i = 0; i < 100; i++) {
             double angle = Math.PI * 2.0 * i / 100.0;
@@ -225,8 +288,11 @@ public final class PortalEffect {
             );
 
             world.spawnParticle(
-                    Particle.DUST, point, 1,
-                    0, 0, 0, 0, shockDust
+                    Particle.DUST,
+                    point,
+                    1,
+                    0, 0, 0, 0,
+                    shockDust
             );
 
             if (i % 5 == 0) {
@@ -247,7 +313,6 @@ public final class PortalEffect {
         );
     }
 
-    // Opening animation burst
     public static void spawnOpening(
             Location center,
             long tick,
