@@ -17,4 +17,3 @@ permissions:
   voidportal.admin:
     description: Allows managing VoidPortal portals and portal selectors
     default: op
-    
