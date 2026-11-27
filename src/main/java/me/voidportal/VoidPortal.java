@@ -1,3 +1,4 @@
+
 package me.voidportal;
 
 import org.bukkit.Bukkit;
@@ -55,11 +56,22 @@ public final class VoidPortal extends JavaPlugin
     );
 
     private static final List<String> COLORS = Arrays.asList(
-            "black", "dark_blue", "dark_green",
-            "dark_aqua", "dark_red", "dark_purple",
-            "gold", "gray", "dark_gray",
-            "blue", "green", "aqua",
-            "red", "light_purple", "yellow", "white"
+            "black",
+            "dark_blue",
+            "dark_green",
+            "dark_aqua",
+            "dark_red",
+            "dark_purple",
+            "gold",
+            "gray",
+            "dark_gray",
+            "blue",
+            "green",
+            "aqua",
+            "red",
+            "light_purple",
+            "yellow",
+            "white"
     );
 
     @Override
@@ -98,6 +110,7 @@ public final class VoidPortal extends JavaPlugin
     @Override
     public void onDisable() {
         savePortals();
+
         teleportCooldown.clear();
         teleporting.clear();
         selectionPortal.clear();
@@ -110,7 +123,10 @@ public final class VoidPortal extends JavaPlugin
                 "&5&lVoidPortal &8» &r"
         );
 
-        return ChatColor.translateAlternateColorCodes('&', prefix + text);
+        return ChatColor.translateAlternateColorCodes(
+                '&',
+                prefix + text
+        );
     }
 
     private String color(String text) {
@@ -160,15 +176,21 @@ public final class VoidPortal extends JavaPlugin
         );
     }
 
+    private String getGlowColor(String name) {
+        return portalsConfig.getString(
+                portalPath(name) + ".glow-color",
+                "dark_purple"
+        );
+    }
+
     private boolean isSelector(ItemStack item) {
         if (item == null || !item.hasItemMeta()) {
             return false;
         }
 
-        return item.getItemMeta().getPersistentDataContainer().has(
-                selectorKey,
-                PersistentDataType.BYTE
-        );
+        return item.getItemMeta()
+                .getPersistentDataContainer()
+                .has(selectorKey, PersistentDataType.BYTE);
     }
 
     private ItemStack createSelector() {
@@ -198,6 +220,7 @@ public final class VoidPortal extends JavaPlugin
         );
 
         axe.setItemMeta(meta);
+
         return axe;
     }
 
@@ -223,7 +246,9 @@ public final class VoidPortal extends JavaPlugin
         event.setCancelled(true);
 
         if (!player.hasPermission("voidportal.admin")) {
-            player.sendMessage(message("&cYou don't have permission!"));
+            player.sendMessage(message(
+                    "&cYou don't have permission!"
+            ));
             return;
         }
 
@@ -250,10 +275,14 @@ public final class VoidPortal extends JavaPlugin
                     clicked.clone()
             );
 
-            player.sendMessage(message("&aFirst corner selected!"));
+            player.sendMessage(message(
+                    "&aFirst corner selected!"
+            ));
+
             player.sendMessage(message(
                     "&eNow right-click the opposite corner."
             ));
+
             return;
         }
 
@@ -317,7 +346,10 @@ public final class VoidPortal extends JavaPlugin
 
         PortalEffect.spawnActivation(center, 5.0);
 
-        if (getConfig().getBoolean("settings.sound-effect", true)) {
+        if (getConfig().getBoolean(
+                "settings.sound-effect",
+                true
+        )) {
             player.playSound(
                     center,
                     Sound.BLOCK_PORTAL_AMBIENT,
@@ -347,14 +379,35 @@ public final class VoidPortal extends JavaPlugin
                 && pos1.getWorld().equals(pos2.getWorld())
                 && pos1.getWorld().equals(playerLocation.getWorld())) {
 
-            int minX = Math.min(pos1.getBlockX(), pos2.getBlockX());
-            int maxX = Math.max(pos1.getBlockX(), pos2.getBlockX());
+            int minX = Math.min(
+                    pos1.getBlockX(),
+                    pos2.getBlockX()
+            );
 
-            int minY = Math.min(pos1.getBlockY(), pos2.getBlockY());
-            int maxY = Math.max(pos1.getBlockY(), pos2.getBlockY());
+            int maxX = Math.max(
+                    pos1.getBlockX(),
+                    pos2.getBlockX()
+            );
 
-            int minZ = Math.min(pos1.getBlockZ(), pos2.getBlockZ());
-            int maxZ = Math.max(pos1.getBlockZ(), pos2.getBlockZ());
+            int minY = Math.min(
+                    pos1.getBlockY(),
+                    pos2.getBlockY()
+            );
+
+            int maxY = Math.max(
+                    pos1.getBlockY(),
+                    pos2.getBlockY()
+            );
+
+            int minZ = Math.min(
+                    pos1.getBlockZ(),
+                    pos2.getBlockZ()
+            );
+
+            int maxZ = Math.max(
+                    pos1.getBlockZ(),
+                    pos2.getBlockZ()
+            );
 
             return playerLocation.getBlockX() >= minX
                     && playerLocation.getBlockX() <= maxX
@@ -408,7 +461,8 @@ public final class VoidPortal extends JavaPlugin
                             getConfig().getInt(
                                     "portal.particle-count",
                                     180
-                            )
+                            ),
+                            getGlowColor(name)
                     );
                 }
             }
@@ -459,7 +513,11 @@ public final class VoidPortal extends JavaPlugin
         }
 
         long now = System.currentTimeMillis();
-        long cooldownUntil = teleportCooldown.getOrDefault(uuid, 0L);
+
+        long cooldownUntil = teleportCooldown.getOrDefault(
+                uuid,
+                0L
+        );
 
         if (now < cooldownUntil) {
             return;
@@ -469,14 +527,20 @@ public final class VoidPortal extends JavaPlugin
 
         int delay = Math.max(
                 0,
-                getConfig().getInt("settings.teleport-delay", 3)
+                getConfig().getInt(
+                        "settings.teleport-delay",
+                        3
+                )
         );
 
         Location startLocation = player.getLocation().clone();
 
         PortalEffect.spawnActivation(portal, 3.0);
 
-        if (getConfig().getBoolean("settings.sound-effect", true)) {
+        if (getConfig().getBoolean(
+                "settings.sound-effect",
+                true
+        )) {
             player.playSound(
                     player.getLocation(),
                     Sound.BLOCK_PORTAL_TRIGGER,
@@ -499,7 +563,9 @@ public final class VoidPortal extends JavaPlugin
                 if (getConfig().getBoolean(
                         "settings.cancel-on-move",
                         true
-                ) && player.getLocation().distanceSquared(startLocation) > 0.25) {
+                ) && player.getLocation().distanceSquared(
+                        startLocation
+                ) > 0.25) {
 
                     player.sendMessage(message(
                             "&cTeleport cancelled because you moved!"
@@ -558,12 +624,16 @@ public final class VoidPortal extends JavaPlugin
             String[] args
     ) {
         if (!sender.hasPermission("voidportal.admin")) {
-            sender.sendMessage(message("&cYou don't have permission!"));
+            sender.sendMessage(message(
+                    "&cYou don't have permission!"
+            ));
             return true;
         }
 
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("This command can only be used in-game.");
+            sender.sendMessage(
+                    "This command can only be used in-game."
+            );
             return true;
         }
 
@@ -603,14 +673,26 @@ public final class VoidPortal extends JavaPlugin
                 savePortals();
             }
 
-            selectionPortal.put(player.getUniqueId(), name);
+            selectionPortal.put(
+                    player.getUniqueId(),
+                    name
+            );
+
             firstCorner.remove(player.getUniqueId());
 
             player.getInventory().addItem(createSelector());
 
-            player.sendMessage(message("&dVoid Portal Selector received!"));
-            player.sendMessage(message("&eLeft-click the first corner."));
-            player.sendMessage(message("&eRight-click the opposite corner."));
+            player.sendMessage(message(
+                    "&dVoid Portal Selector received!"
+            ));
+
+            player.sendMessage(message(
+                    "&eLeft-click the first corner."
+            ));
+
+            player.sendMessage(message(
+                    "&eRight-click the opposite corner."
+            ));
 
             return true;
         }
@@ -620,19 +702,25 @@ public final class VoidPortal extends JavaPlugin
         switch (action) {
             case "create" -> {
                 if (args.length < 2) {
-                    player.sendMessage(message("&c/portal create <name>"));
+                    player.sendMessage(message(
+                            "&c/portal create <name>"
+                    ));
                     return true;
                 }
 
                 String name = args[1].toLowerCase(Locale.ROOT);
 
                 if (!name.matches("[a-z0-9_-]+")) {
-                    player.sendMessage(message("&cInvalid portal name!"));
+                    player.sendMessage(message(
+                            "&cInvalid portal name!"
+                    ));
                     return true;
                 }
 
                 if (portalExists(name)) {
-                    player.sendMessage(message("&cThat portal already exists!"));
+                    player.sendMessage(message(
+                            "&cThat portal already exists!"
+                    ));
                     return true;
                 }
 
@@ -653,7 +741,9 @@ public final class VoidPortal extends JavaPlugin
 
                 savePortals();
 
-                player.sendMessage(message("&aPortal created: &f" + name));
+                player.sendMessage(message(
+                        "&aPortal created: &f" + name
+                ));
             }
 
             case "link" -> {
@@ -674,7 +764,8 @@ public final class VoidPortal extends JavaPlugin
                     return true;
                 }
 
-                if (!portalExists(first) || !portalExists(second)) {
+                if (!portalExists(first)
+                        || !portalExists(second)) {
                     player.sendMessage(message(
                             "&cBoth portals must exist first!"
                     ));
@@ -684,8 +775,11 @@ public final class VoidPortal extends JavaPlugin
                 Location firstLocation = getPortalLocation(first);
                 Location secondLocation = getPortalLocation(second);
 
-                if (firstLocation == null || secondLocation == null) {
-                    player.sendMessage(message("&cPortal location is missing!"));
+                if (firstLocation == null
+                        || secondLocation == null) {
+                    player.sendMessage(message(
+                            "&cPortal location is missing!"
+                    ));
                     return true;
                 }
 
@@ -719,7 +813,9 @@ public final class VoidPortal extends JavaPlugin
                 String name = args[1].toLowerCase(Locale.ROOT);
 
                 if (!portalExists(name)) {
-                    player.sendMessage(message("&cPortal not found!"));
+                    player.sendMessage(message(
+                            "&cPortal not found!"
+                    ));
                     return true;
                 }
 
@@ -728,7 +824,9 @@ public final class VoidPortal extends JavaPlugin
                 try {
                     radius = Double.parseDouble(args[2]);
                 } catch (NumberFormatException exception) {
-                    player.sendMessage(message("&cRadius must be a number!"));
+                    player.sendMessage(message(
+                            "&cRadius must be a number!"
+                    ));
                     return true;
                 }
 
@@ -752,7 +850,10 @@ public final class VoidPortal extends JavaPlugin
                 }
 
                 savePortals();
-                player.sendMessage(message("&aOuter radius updated!"));
+
+                player.sendMessage(message(
+                        "&aOuter radius updated!"
+                ));
             }
 
             case "innersize" -> {
@@ -766,7 +867,9 @@ public final class VoidPortal extends JavaPlugin
                 String name = args[1].toLowerCase(Locale.ROOT);
 
                 if (!portalExists(name)) {
-                    player.sendMessage(message("&cPortal not found!"));
+                    player.sendMessage(message(
+                            "&cPortal not found!"
+                    ));
                     return true;
                 }
 
@@ -775,11 +878,14 @@ public final class VoidPortal extends JavaPlugin
                 try {
                     radius = Double.parseDouble(args[2]);
                 } catch (NumberFormatException exception) {
-                    player.sendMessage(message("&cRadius must be a number!"));
+                    player.sendMessage(message(
+                            "&cRadius must be a number!"
+                    ));
                     return true;
                 }
 
-                if (radius < 0.5 || radius >= getOuterRadius(name)) {
+                if (radius < 0.5
+                        || radius >= getOuterRadius(name)) {
                     player.sendMessage(message(
                             "&cInner radius must be smaller than outer radius!"
                     ));
@@ -792,26 +898,39 @@ public final class VoidPortal extends JavaPlugin
                 );
 
                 savePortals();
-                player.sendMessage(message("&aInner radius updated!"));
+
+                player.sendMessage(message(
+                        "&aInner radius updated!"
+                ));
             }
 
             case "remove" -> {
                 if (args.length < 2) {
-                    player.sendMessage(message("&c/portal remove <name>"));
+                    player.sendMessage(message(
+                            "&c/portal remove <name>"
+                    ));
                     return true;
                 }
 
                 String name = args[1].toLowerCase(Locale.ROOT);
 
                 if (!portalExists(name)) {
-                    player.sendMessage(message("&cPortal not found!"));
+                    player.sendMessage(message(
+                            "&cPortal not found!"
+                    ));
                     return true;
                 }
 
-                portalsConfig.set(portalPath(name), null);
+                portalsConfig.set(
+                        portalPath(name),
+                        null
+                );
+
                 savePortals();
 
-                player.sendMessage(message("&cPortal removed: &f" + name));
+                player.sendMessage(message(
+                        "&cPortal removed: &f" + name
+                ));
             }
 
             case "setdestination" -> {
@@ -825,7 +944,9 @@ public final class VoidPortal extends JavaPlugin
                 String name = args[1].toLowerCase(Locale.ROOT);
 
                 if (!portalExists(name)) {
-                    player.sendMessage(message("&cPortal not found!"));
+                    player.sendMessage(message(
+                            "&cPortal not found!"
+                    ));
                     return true;
                 }
 
@@ -842,12 +963,18 @@ public final class VoidPortal extends JavaPlugin
             }
 
             case "list" -> {
-                if (portalsConfig.getConfigurationSection("portals") == null) {
-                    player.sendMessage(message("&cNo portals created."));
+                if (portalsConfig.getConfigurationSection(
+                        "portals"
+                ) == null) {
+                    player.sendMessage(message(
+                            "&cNo portals created."
+                    ));
                     return true;
                 }
 
-                player.sendMessage(message("&dSaved portals:"));
+                player.sendMessage(message(
+                        "&dSaved portals:"
+                ));
 
                 for (String name : portalsConfig
                         .getConfigurationSection("portals")
@@ -866,7 +993,10 @@ public final class VoidPortal extends JavaPlugin
 
             case "reload" -> {
                 reloadConfig();
-                portalsConfig = YamlConfiguration.loadConfiguration(portalsFile);
+
+                portalsConfig = YamlConfiguration.loadConfiguration(
+                        portalsFile
+                );
 
                 player.sendMessage(message(
                         "&aVoidPortal configuration reloaded!"
@@ -874,6 +1004,85 @@ public final class VoidPortal extends JavaPlugin
             }
 
             case "spawn" -> {
+                if (args.length >= 3
+                        && args[1].equalsIgnoreCase("glow")) {
+
+                    String selectedPortal = selectionPortal.get(
+                            player.getUniqueId()
+                    );
+
+                    if (selectedPortal == null
+                            || !portalExists(selectedPortal)) {
+                        player.sendMessage(message(
+                                "&cFirst select a portal using &f/vportal <name> pset"
+                        ));
+                        return true;
+                    }
+
+                    if (args.length >= 5
+                            && args[2].equalsIgnoreCase("add")
+                            && args[3].equalsIgnoreCase("color")) {
+
+                        String glowColor = args[4].toLowerCase(
+                                Locale.ROOT
+                        );
+
+                        if (!COLORS.contains(glowColor)) {
+                            player.sendMessage(message(
+                                    "&cInvalid color! Available colors: &f"
+                                            + String.join(", ", COLORS)
+                            ));
+                            return true;
+                        }
+
+                        portalsConfig.set(
+                                portalPath(selectedPortal)
+                                        + ".glow-color",
+                                glowColor
+                        );
+
+                        savePortals();
+
+                        player.sendMessage(message(
+                                "&aGlow color set to &f"
+                                        + glowColor
+                                        + " &afor portal &f"
+                                        + selectedPortal
+                        ));
+
+                        return true;
+                    }
+
+                    if (args.length >= 3
+                            && args[2].equalsIgnoreCase("remove")) {
+
+                        portalsConfig.set(
+                                portalPath(selectedPortal)
+                                        + ".glow-color",
+                                null
+                        );
+
+                        savePortals();
+
+                        player.sendMessage(message(
+                                "&aGlow color reset to default for &f"
+                                        + selectedPortal
+                        ));
+
+                        return true;
+                    }
+
+                    player.sendMessage(message(
+                            "&e/vportal spawn glow add color <color>"
+                    ));
+
+                    player.sendMessage(message(
+                            "&e/vportal spawn glow remove"
+                    ));
+
+                    return true;
+                }
+
                 if (args.length < 2) {
                     player.sendMessage(message(
                             "&c/vportal spawn <name> pset"
@@ -885,7 +1094,9 @@ public final class VoidPortal extends JavaPlugin
 
                 if (args.length >= 3
                         && args[2].equalsIgnoreCase("pset")) {
-                    player.performCommand("vportal " + name + " pset");
+                    player.performCommand(
+                            "vportal " + name + " pset"
+                    );
                     return true;
                 }
 
@@ -926,10 +1137,13 @@ public final class VoidPortal extends JavaPlugin
         if (args.length == 1) {
             suggestions.addAll(COMMANDS);
 
-            if (portalsConfig.getConfigurationSection("portals") != null) {
+            if (portalsConfig.getConfigurationSection(
+                    "portals"
+            ) != null) {
                 suggestions.addAll(
-                        portalsConfig.getConfigurationSection("portals")
-                                .getKeys(false)
+                        portalsConfig.getConfigurationSection(
+                                "portals"
+                        ).getKeys(false)
                 );
             }
         } else if (args.length == 2) {
@@ -964,7 +1178,9 @@ public final class VoidPortal extends JavaPlugin
             suggestions.addAll(COLORS);
         }
 
-        String input = args[args.length - 1].toLowerCase(Locale.ROOT);
+        String input = args[args.length - 1].toLowerCase(
+                Locale.ROOT
+        );
 
         suggestions.removeIf(value ->
                 !value.toLowerCase(Locale.ROOT).startsWith(input)
@@ -974,27 +1190,62 @@ public final class VoidPortal extends JavaPlugin
     }
 
     private List<String> getPortalNames() {
-        if (portalsConfig.getConfigurationSection("portals") == null) {
+        if (portalsConfig.getConfigurationSection(
+                "portals"
+        ) == null) {
             return Collections.emptyList();
         }
 
         return new ArrayList<>(
-                portalsConfig.getConfigurationSection("portals")
-                        .getKeys(false)
+                portalsConfig.getConfigurationSection(
+                        "portals"
+                ).getKeys(false)
         );
     }
 
     private void sendHelp(Player player) {
-        player.sendMessage(message("&dVoidPortal Commands"));
-        player.sendMessage(message("&f/vportal <name> pset"));
-        player.sendMessage(message("&f/portal create <name>"));
-        player.sendMessage(message("&f/portal link <portal1> <portal2>"));
-        player.sendMessage(message("&f/portal size <name> <radius>"));
-        player.sendMessage(message("&f/portal innersize <name> <radius>"));
-        player.sendMessage(message("&f/portal remove <name>"));
-        player.sendMessage(message("&f/portal setdestination <name>"));
-        player.sendMessage(message("&f/portal list"));
-        player.sendMessage(message("&f/portal reload"));
-        player.sendMessage(message("&f/vportal spawn glow add color <color>"));
+        player.sendMessage(message(
+                "&dVoidPortal Commands"
+        ));
+
+        player.sendMessage(message(
+                "&f/vportal <name> pset"
+        ));
+
+        player.sendMessage(message(
+                "&f/portal create <name>"
+        ));
+
+        player.sendMessage(message(
+                "&f/portal link <portal1> <portal2>"
+        ));
+
+        player.sendMessage(message(
+                "&f/portal size <name> <radius>"
+        ));
+
+        player.sendMessage(message(
+                "&f/portal innersize <name> <radius>"
+        ));
+
+        player.sendMessage(message(
+                "&f/portal remove <name>"
+        ));
+
+        player.sendMessage(message(
+                "&f/portal setdestination <name>"
+        ));
+
+        player.sendMessage(message(
+                "&f/portal list"
+        ));
+
+        player.sendMessage(message(
+                "&f/portal reload"
+        ));
+
+        player.sendMessage(message(
+                "&f/vportal spawn glow add color <color>"
+        ));
     }
-        }
+}
