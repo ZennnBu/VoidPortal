@@ -3,45 +3,48 @@
 # Author: AimVortex
 
 settings:
-  # Portal particle effect
+  # Enable or disable portal particles
   particle-effect: true
 
-  # Portal sound effect
+  # Enable or disable portal sounds
   sound-effect: true
 
   # Portal animation duration in seconds
   animation-duration: 5
 
-  # Teleport delay in seconds
+  # Teleport countdown duration in seconds
   teleport-delay: 3
 
-  # Cancel teleport if player moves
+  # Cancel teleport countdown if player moves
   cancel-on-move: true
 
 portal:
   # Portal ring radius
   radius: 2.0
 
-  # Portal particle count
+  # Number of particles used in the portal effect
   particle-count: 50
 
   # Particle animation speed
   particle-speed: 0.15
 
-  # Portal particle color (purple)
+  # Default portal particle color (purple)
   red: 170
   green: 0
   blue: 255
 
 messages:
   prefix: "&5&lVoidPortal &8» &r"
+
   no-permission: "&cYou don't have permission!"
   player-only: "&cOnly players can use this command!"
+
   portal-created: "&aPortal created successfully!"
   portal-removed: "&cPortal removed successfully!"
   destination-set: "&aPortal destination set!"
+
   teleport-start: "&dTeleporting in &f3 &dseconds..."
   teleport-success: "&aYou have been teleported!"
   teleport-cancelled: "&cTeleport cancelled because you moved!"
+
   portal-not-found: "&cPortal not found!"
-  
