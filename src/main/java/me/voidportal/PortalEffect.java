@@ -24,14 +24,8 @@ public final class PortalEffect {
             double innerRadius,
             int particleCount
     ) {
-        spawn(
-                center,
-                tick,
-                outerRadius,
-                innerRadius,
-                particleCount,
-                "dark_purple"
-        );
+        spawn(center, tick, outerRadius, innerRadius,
+                particleCount, "dark_purple");
     }
 
     public static void spawn(
@@ -48,46 +42,34 @@ public final class PortalEffect {
 
         World world = center.getWorld();
 
-        outerRadius = Math.max(3.0, Math.min(outerRadius, 64.0));
-        innerRadius = Math.max(
-                0.5,
-                Math.min(innerRadius, outerRadius - 0.5)
-        );
+        outerRadius = clamp(outerRadius, 3.0, 64.0);
+        innerRadius = clamp(innerRadius, 0.5, outerRadius - 0.5);
+        particleCount = (int) clamp(particleCount, 80, 360);
 
-        particleCount = Math.max(80, Math.min(particleCount, 360));
-
-        Color selectedColor = getColor(glowColor);
+        Color selected = getColor(glowColor);
 
         Particle.DustOptions outerDust =
-                new Particle.DustOptions(selectedColor, 1.5F);
+                new Particle.DustOptions(selected, 1.6F);
 
         Particle.DustOptions innerDust =
-                new Particle.DustOptions(selectedColor, 1.4F);
+                new Particle.DustOptions(selected, 1.3F);
 
         Particle.DustOptions brightDust =
                 new Particle.DustOptions(
-                        Color.fromRGB(255, 250, 235),
-                        1.2F
-                );
-
-        Particle.DustOptions runeDust =
-                new Particle.DustOptions(selectedColor, 1.1F);
+                        Color.fromRGB(245, 225, 255), 1.2F);
 
         Location base = center.clone().add(0, 0.12, 0);
 
-        // 1. Animated outer ground ring
+        // Animated outer ground ring
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.PI * 2.0 * i / particleCount;
 
-            double wave1 =
-                    Math.sin(angle * 5.0 + tick * 0.01) * 0.45;
+            double wave =
+                    Math.sin(angle * 5.0 + tick * 0.012) * 0.35
+                    + Math.cos(angle * 9.0 - tick * 0.009) * 0.20
+                    + Math.sin(angle * 13.0 + tick * 0.006) * 0.10;
 
-            double wave2 =
-                    Math.cos(angle * 9.0 - tick * 0.008) * 0.25;
-
-            double wave3 = Math.sin(angle * 13.0) * 0.12;
-
-            double radius = outerRadius + wave1 + wave2 + wave3;
+            double radius = outerRadius + wave;
 
             Location point = base.clone().add(
                     Math.cos(angle) * radius,
@@ -96,20 +78,14 @@ public final class PortalEffect {
             );
 
             world.spawnParticle(
-                    Particle.DUST,
-                    point,
-                    1,
-                    0, 0, 0, 0,
-                    outerDust
+                    Particle.DUST, point, 1,
+                    0, 0, 0, 0, outerDust
             );
 
             if (i % 4 == 0) {
                 world.spawnParticle(
-                        Particle.END_ROD,
-                        point,
-                        1,
-                        0.02, 0.025, 0.02,
-                        0
+                        Particle.END_ROD, point, 1,
+                        0.02, 0.025, 0.02, 0
                 );
             }
 
@@ -117,14 +93,12 @@ public final class PortalEffect {
                 world.spawnParticle(
                         Particle.ELECTRIC_SPARK,
                         point.clone().add(0, 0.25, 0),
-                        3,
-                        0.12, 0.35, 0.12,
-                        0.02
+                        3, 0.12, 0.35, 0.12, 0.02
                 );
             }
         }
 
-        // 2. Floating magical rune ring
+        // Floating magical rune ring
         int runeCount = 12;
 
         for (int i = 0; i < runeCount; i++) {
@@ -142,29 +116,19 @@ public final class PortalEffect {
             Location rune = base.clone().add(x, height, z);
 
             world.spawnParticle(
-                    Particle.ENCHANT,
-                    rune,
-                    5,
-                    0.12, 0.18, 0.12,
-                    0.4
+                    Particle.ENCHANT, rune,
+                    5, 0.12, 0.18, 0.12, 0.4
             );
 
             world.spawnParticle(
-                    Particle.DUST,
-                    rune,
-                    2,
-                    0.04, 0.08, 0.04,
-                    0,
-                    runeDust
+                    Particle.DUST, rune,
+                    2, 0.04, 0.08, 0.04, 0,
+                    outerDust
             );
         }
 
-        // 3. Inner glow ring
-        int innerCount = Math.max(
-                48,
-                (int) (innerRadius * 24.0)
-        );
-
+        // Inner glow ring
+        int innerCount = Math.max(48, (int) (innerRadius * 24.0));
         innerCount = Math.min(innerCount, 160);
 
         for (int i = 0; i < innerCount; i++) {
@@ -181,25 +145,20 @@ public final class PortalEffect {
             );
 
             world.spawnParticle(
-                    Particle.DUST,
-                    point,
-                    1,
-                    0, 0, 0, 0,
-                    innerDust
+                    Particle.DUST, point, 1,
+                    0, 0, 0, 0, innerDust
             );
 
             if (i % 8 == 0) {
                 world.spawnParticle(
                         Particle.ELECTRIC_SPARK,
                         point.clone().add(0, 0.2, 0),
-                        2,
-                        0.08, 0.15, 0.08,
-                        0.01
+                        2, 0.08, 0.15, 0.08, 0.01
                 );
             }
         }
 
-        // 4. Void Core Vortex
+        // Swirling void core
         for (int i = 0; i < 36; i++) {
             double progress = i / 36.0;
 
@@ -215,20 +174,14 @@ public final class PortalEffect {
             );
 
             world.spawnParticle(
-                    Particle.PORTAL,
-                    point,
-                    1,
-                    0.025, 0.04, 0.025,
-                    0.01
+                    Particle.PORTAL, point, 1,
+                    0.025, 0.04, 0.025, 0.01
             );
 
             if (i % 4 == 0) {
                 world.spawnParticle(
-                        Particle.DUST,
-                        point,
-                        1,
-                        0, 0, 0, 0,
-                        brightDust
+                        Particle.DUST, point, 1,
+                        0, 0, 0, 0, brightDust
                 );
             }
         }
@@ -269,13 +222,11 @@ public final class PortalEffect {
         }
 
         World world = center.getWorld();
-
-        radius = Math.max(1.0, Math.min(radius, 64.0));
+        radius = clamp(radius, 1.0, 64.0);
 
         Particle.DustOptions shockDust =
                 new Particle.DustOptions(
-                        Color.fromRGB(190, 80, 255),
-                        2.0F
+                        Color.fromRGB(190, 80, 255), 2.0F
                 );
 
         for (int i = 0; i < 100; i++) {
@@ -288,28 +239,21 @@ public final class PortalEffect {
             );
 
             world.spawnParticle(
-                    Particle.DUST,
-                    point,
-                    1,
-                    0, 0, 0, 0,
-                    shockDust
+                    Particle.DUST, point, 1,
+                    0, 0, 0, 0, shockDust
             );
 
             if (i % 5 == 0) {
                 world.spawnParticle(
                         Particle.ELECTRIC_SPARK,
                         point.clone().add(0, 0.3, 0),
-                        4,
-                        0.15, 0.25, 0.15,
-                        0.02
+                        4, 0.15, 0.25, 0.15, 0.02
                 );
             }
         }
 
         world.spawnParticle(
-                Particle.FLASH,
-                center.clone().add(0, 0.5, 0),
-                1
+                Particle.FLASH, center.clone().add(0, 0.5, 0), 1
         );
     }
 
@@ -338,20 +282,22 @@ public final class PortalEffect {
             );
 
             world.spawnParticle(
-                    Particle.PORTAL,
-                    point,
-                    2,
-                    0.04, 0.08, 0.04,
-                    0.02
+                    Particle.PORTAL, point, 2,
+                    0.04, 0.08, 0.04, 0.02
             );
 
             world.spawnParticle(
-                    Particle.END_ROD,
-                    point,
-                    1,
-                    0.03, 0.04, 0.03,
-                    0
+                    Particle.END_ROD, point, 1,
+                    0.03, 0.04, 0.03, 0
             );
         }
+    }
+
+    private static double clamp(
+            double value,
+            double minimum,
+            double maximum
+    ) {
+        return Math.max(minimum, Math.min(value, maximum));
     }
 }
