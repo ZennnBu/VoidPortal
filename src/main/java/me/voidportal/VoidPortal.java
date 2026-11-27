@@ -16,6 +16,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -80,12 +81,38 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
         }
     }
 
+    private String portalPath(String name) {
+        return "portals." + name;
+    }
+
+    private boolean portalExists(String name) {
+        return portalsConfig.contains(portalPath(name));
+    }
+
     private Location getPortalLocation(String name) {
-        return portalsConfig.getLocation("portals." + name + ".location");
+        return portalsConfig.getLocation(
+                portalPath(name) + ".location"
+        );
     }
 
     private Location getPortalDestination(String name) {
-        return portalsConfig.getLocation("portals." + name + ".destination");
+        return portalsConfig.getLocation(
+                portalPath(name) + ".destination"
+        );
+    }
+
+    private double getOuterRadius(String name) {
+        return portalsConfig.getDouble(
+                portalPath(name) + ".outer-radius",
+                16.0
+        );
+    }
+
+    private double getInnerRadius(String name) {
+        return portalsConfig.getDouble(
+                portalPath(name) + ".inner-radius",
+                2.5
+        );
     }
 
     private void startPortalEffects() {
@@ -94,7 +121,10 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
             public void run() {
                 animationTick += 5L;
 
-                if (!getConfig().getBoolean("settings.particle-effect", true)) {
+                if (!getConfig().getBoolean(
+                        "settings.particle-effect",
+                        true
+                )) {
                     return;
                 }
 
@@ -112,7 +142,16 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                         continue;
                     }
 
-                    PortalEffect.spawn(portal, animationTick);
+                    PortalEffect.spawn(
+                            portal,
+                            animationTick,
+                            getOuterRadius(name),
+                            getInnerRadius(name),
+                            getConfig().getInt(
+                                    "portal.particle-count",
+                                    180
+                            )
+                    );
                 }
             }
         }.runTaskTimer(this, 0L, 5L);
@@ -149,7 +188,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                         if (player.getLocation().distanceSquared(portal)
                                 <= activationRadius * activationRadius) {
 
-                            beginTeleport(player, name, destination);
+                            beginTeleport(player, destination);
                         }
                     }
                 }
@@ -157,11 +196,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
         }.runTaskTimer(this, 0L, 10L);
     }
 
-    private void beginTeleport(
-            Player player,
-            String portalName,
-            Location destination
-    ) {
+    private void beginTeleport(Player player, Location destination) {
         UUID uuid = player.getUniqueId();
 
         long now = System.currentTimeMillis();
@@ -203,9 +238,10 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                     return;
                 }
 
-                if (getConfig().getBoolean("settings.cancel-on-move", true)
-                        && player.getLocation().distanceSquared(startLocation)
-                        > 0.25) {
+                if (getConfig().getBoolean(
+                        "settings.cancel-on-move",
+                        true
+                ) && player.getLocation().distanceSquared(startLocation) > 0.25) {
 
                     player.sendMessage(message(
                             "&cTeleport cancelled because you moved!"
@@ -216,15 +252,16 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 }
 
                 if (secondsLeft <= 0) {
-                    Location safeDestination = destination.clone();
-
-                    player.teleport(safeDestination);
+                    player.teleport(destination.clone());
 
                     player.sendMessage(message(
                             "&dWelcome to the other side of the Void!"
                     ));
 
-                    if (getConfig().getBoolean("settings.sound-effect", true)) {
+                    if (getConfig().getBoolean(
+                            "settings.sound-effect",
+                            true
+                    )) {
                         player.playSound(
                                 player.getLocation(),
                                 Sound.ENTITY_ENDERMAN_TELEPORT,
@@ -264,7 +301,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
             return true;
         }
 
-        String action = args[0].toLowerCase();
+        String action = args[0].toLowerCase(Locale.ROOT);
 
         switch (action) {
             case "create" -> {
@@ -273,16 +310,26 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                     return true;
                 }
 
-                String name = args[1].toLowerCase();
+                String name = args[1].toLowerCase(Locale.ROOT);
 
-                if (portalsConfig.contains("portals." + name)) {
+                if (portalExists(name)) {
                     player.sendMessage(message("&cThat portal already exists!"));
                     return true;
                 }
 
                 portalsConfig.set(
-                        "portals." + name + ".location",
+                        portalPath(name) + ".location",
                         player.getLocation()
+                );
+
+                portalsConfig.set(
+                        portalPath(name) + ".outer-radius",
+                        16.0
+                );
+
+                portalsConfig.set(
+                        portalPath(name) + ".inner-radius",
+                        2.5
                 );
 
                 savePortals();
@@ -300,8 +347,8 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                     return true;
                 }
 
-                String first = args[1].toLowerCase();
-                String second = args[2].toLowerCase();
+                String first = args[1].toLowerCase(Locale.ROOT);
+                String second = args[2].toLowerCase(Locale.ROOT);
 
                 if (first.equals(second)) {
                     player.sendMessage(message(
@@ -310,9 +357,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                     return true;
                 }
 
-                if (!portalsConfig.contains("portals." + first)
-                        || !portalsConfig.contains("portals." + second)) {
-
+                if (!portalExists(first) || !portalExists(second)) {
                     player.sendMessage(message(
                             "&cBoth portals must exist first!"
                     ));
@@ -330,12 +375,12 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 }
 
                 portalsConfig.set(
-                        "portals." + first + ".destination",
+                        portalPath(first) + ".destination",
                         secondLocation
                 );
 
                 portalsConfig.set(
-                        "portals." + second + ".destination",
+                        portalPath(second) + ".destination",
                         firstLocation
                 );
 
@@ -348,20 +393,125 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 ));
             }
 
+            case "size" -> {
+                if (args.length < 3) {
+                    player.sendMessage(message(
+                            "&c/portal size <name> <radius>"
+                    ));
+                    return true;
+                }
+
+                String name = args[1].toLowerCase(Locale.ROOT);
+
+                if (!portalExists(name)) {
+                    player.sendMessage(message("&cPortal not found!"));
+                    return true;
+                }
+
+                double radius;
+
+                try {
+                    radius = Double.parseDouble(args[2]);
+                } catch (NumberFormatException exception) {
+                    player.sendMessage(message(
+                            "&cRadius must be a number!"
+                    ));
+                    return true;
+                }
+
+                if (radius < 3.0 || radius > 64.0) {
+                    player.sendMessage(message(
+                            "&cOuter radius must be between 3 and 64 blocks!"
+                    ));
+                    return true;
+                }
+
+                portalsConfig.set(
+                        portalPath(name) + ".outer-radius",
+                        radius
+                );
+
+                double innerRadius = getInnerRadius(name);
+
+                if (innerRadius >= radius) {
+                    portalsConfig.set(
+                            portalPath(name) + ".inner-radius",
+                            Math.max(0.5, radius - 0.5)
+                    );
+                }
+
+                savePortals();
+
+                player.sendMessage(message(
+                        "&aOuter ring size for &f" + name
+                                + " &ais now &f" + radius
+                                + " &ablocks."
+                ));
+            }
+
+            case "innersize" -> {
+                if (args.length < 3) {
+                    player.sendMessage(message(
+                            "&c/portal innersize <name> <radius>"
+                    ));
+                    return true;
+                }
+
+                String name = args[1].toLowerCase(Locale.ROOT);
+
+                if (!portalExists(name)) {
+                    player.sendMessage(message("&cPortal not found!"));
+                    return true;
+                }
+
+                double radius;
+
+                try {
+                    radius = Double.parseDouble(args[2]);
+                } catch (NumberFormatException exception) {
+                    player.sendMessage(message(
+                            "&cRadius must be a number!"
+                    ));
+                    return true;
+                }
+
+                double outerRadius = getOuterRadius(name);
+
+                if (radius < 0.5 || radius >= outerRadius) {
+                    player.sendMessage(message(
+                            "&cInner radius must be at least 0.5 and smaller than the outer ring!"
+                    ));
+                    return true;
+                }
+
+                portalsConfig.set(
+                        portalPath(name) + ".inner-radius",
+                        radius
+                );
+
+                savePortals();
+
+                player.sendMessage(message(
+                        "&aInner ring size for &f" + name
+                                + " &ais now &f" + radius
+                                + " &ablocks."
+                ));
+            }
+
             case "remove" -> {
                 if (args.length < 2) {
                     player.sendMessage(message("&c/portal remove <name>"));
                     return true;
                 }
 
-                String name = args[1].toLowerCase();
+                String name = args[1].toLowerCase(Locale.ROOT);
 
-                if (!portalsConfig.contains("portals." + name)) {
+                if (!portalExists(name)) {
                     player.sendMessage(message("&cPortal not found!"));
                     return true;
                 }
 
-                portalsConfig.set("portals." + name, null);
+                portalsConfig.set(portalPath(name), null);
                 savePortals();
 
                 player.sendMessage(message(
@@ -377,15 +527,15 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                     return true;
                 }
 
-                String name = args[1].toLowerCase();
+                String name = args[1].toLowerCase(Locale.ROOT);
 
-                if (!portalsConfig.contains("portals." + name)) {
+                if (!portalExists(name)) {
                     player.sendMessage(message("&cPortal not found!"));
                     return true;
                 }
 
                 portalsConfig.set(
-                        "portals." + name + ".destination",
+                        portalPath(name) + ".destination",
                         player.getLocation()
                 );
 
@@ -408,7 +558,14 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                         .getConfigurationSection("portals")
                         .getKeys(false)) {
 
-                    player.sendMessage(message("&f- " + name));
+                    player.sendMessage(message(
+                            "&f- " + name
+                                    + " &7(outer: "
+                                    + getOuterRadius(name)
+                                    + ", inner: "
+                                    + getInnerRadius(name)
+                                    + ")"
+                    ));
                 }
             }
 
@@ -431,10 +588,11 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
         player.sendMessage(message("&dVoidPortal Commands"));
         player.sendMessage(message("&f/portal create <name>"));
         player.sendMessage(message("&f/portal link <portal1> <portal2>"));
+        player.sendMessage(message("&f/portal size <name> <radius>"));
+        player.sendMessage(message("&f/portal innersize <name> <radius>"));
         player.sendMessage(message("&f/portal remove <name>"));
         player.sendMessage(message("&f/portal setdestination <name>"));
         player.sendMessage(message("&f/portal list"));
         player.sendMessage(message("&f/portal reload"));
     }
-                        }
-                                            
+}
