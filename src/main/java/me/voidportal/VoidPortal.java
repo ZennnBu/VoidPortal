@@ -5,11 +5,21 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.NamespacedKey;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -20,17 +30,25 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-public final class VoidPortal extends JavaPlugin implements CommandExecutor {
+public final class VoidPortal extends JavaPlugin
+        implements CommandExecutor, Listener {
 
     private File portalsFile;
     private YamlConfiguration portalsConfig;
 
+    private NamespacedKey selectorKey;
+
     private final Map<UUID, Long> teleportCooldown = new HashMap<>();
+    private final Map<UUID, String> selectionPortal = new HashMap<>();
+    private final Map<UUID, Location> firstCorner = new HashMap<>();
+
     private long animationTick = 0L;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
+
+        selectorKey = new NamespacedKey(this, "portal_selector");
 
         portalsFile = new File(getDataFolder(), "portals.yml");
 
@@ -50,6 +68,8 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
             getCommand("portal").setExecutor(this);
         }
 
+        Bukkit.getPluginManager().registerEvents(this, this);
+
         startPortalEffects();
         startPortalDetection();
 
@@ -61,6 +81,8 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
     public void onDisable() {
         savePortals();
         teleportCooldown.clear();
+        selectionPortal.clear();
+        firstCorner.clear();
     }
 
     private String message(String text) {
@@ -115,6 +137,221 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
         );
     }
 
+    private boolean isSelector(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) {
+            return false;
+        }
+
+        ItemMeta meta = item.getItemMeta();
+
+        return meta.getPersistentDataContainer().has(
+                selectorKey,
+                PersistentDataType.BYTE
+        );
+    }
+
+    private ItemStack createSelector() {
+        ItemStack axe = new ItemStack(
+                org.bukkit.Material.WOODEN_AXE
+        );
+
+        ItemMeta meta = axe.getItemMeta();
+
+        meta.setDisplayName(ChatColor.LIGHT_PURPLE
+                + "" + ChatColor.BOLD + "Void Portal Selector");
+
+        meta.setLore(java.util.Arrays.asList(
+                ChatColor.GRAY + "Left-click: First corner",
+                ChatColor.GRAY + "Right-click: Second corner",
+                ChatColor.DARK_PURPLE + "AimVortex"
+        ));
+
+        meta.getPersistentDataContainer().set(
+                selectorKey,
+                PersistentDataType.BYTE,
+                (byte) 1
+        );
+
+        axe.setItemMeta(meta);
+        return axe;
+    }
+
+    @EventHandler
+    public void onSelectorUse(PlayerInteractEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+
+        if (!isSelector(event.getItem())) {
+            return;
+        }
+
+        Action action = event.getAction();
+
+        if (action != Action.LEFT_CLICK_BLOCK
+                && action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+
+        event.setCancelled(true);
+
+        if (!player.hasPermission("voidportal.admin")) {
+            player.sendMessage(message("&cYou don't have permission!"));
+            return;
+        }
+
+        if (event.getClickedBlock() == null) {
+            return;
+        }
+
+        Location clicked = event.getClickedBlock().getLocation();
+
+        String portalName = selectionPortal.get(
+                player.getUniqueId()
+        );
+
+        if (portalName == null) {
+            player.sendMessage(message(
+                    "&cFirst use &f/vportal <name> pset"
+            ));
+            return;
+        }
+
+        if (action == Action.LEFT_CLICK_BLOCK) {
+            firstCorner.put(
+                    player.getUniqueId(),
+                    clicked.clone()
+            );
+
+            player.sendMessage(message(
+                    "&aFirst corner selected!"
+            ));
+
+            player.sendMessage(message(
+                    "&eNow right-click the opposite corner."
+            ));
+
+            return;
+        }
+
+        Location first = firstCorner.get(
+                player.getUniqueId()
+        );
+
+        if (first == null) {
+            player.sendMessage(message(
+                    "&cSelect the first corner with left-click first!"
+            ));
+            return;
+        }
+
+        if (first.getWorld() == null
+                || !first.getWorld().equals(clicked.getWorld())) {
+            player.sendMessage(message(
+                    "&cBoth corners must be in the same world!"
+            ));
+            return;
+        }
+
+        Location second = clicked.clone();
+
+        portalsConfig.set(
+                portalPath(portalName) + ".pos1",
+                first
+        );
+
+        portalsConfig.set(
+                portalPath(portalName) + ".pos2",
+                second
+        );
+
+        Location center = new Location(
+                first.getWorld(),
+                (first.getBlockX() + second.getBlockX()) / 2.0 + 0.5,
+                (first.getBlockY() + second.getBlockY()) / 2.0 + 0.5,
+                (first.getBlockZ() + second.getBlockZ()) / 2.0 + 0.5
+        );
+
+        portalsConfig.set(
+                portalPath(portalName) + ".location",
+                center
+        );
+
+        savePortals();
+
+        selectionPortal.remove(player.getUniqueId());
+        firstCorner.remove(player.getUniqueId());
+
+        player.sendMessage(message(
+                "&dPortal area saved for &f" + portalName
+        ));
+
+        player.sendMessage(message(
+                "&7Use &f/portal link "
+                        + portalName
+                        + " <destination> &7to connect it."
+        ));
+
+        PortalEffect.spawnActivation(center, 5.0);
+
+        if (getConfig().getBoolean("settings.sound-effect", true)) {
+            player.playSound(
+                    center,
+                    Sound.BLOCK_PORTAL_AMBIENT,
+                    1.0F,
+                    0.8F
+            );
+        }
+    }
+
+    private boolean isInsidePortal(
+            Player player,
+            String name,
+            Location portal
+    ) {
+        Location pos1 = portalsConfig.getLocation(
+                portalPath(name) + ".pos1"
+        );
+
+        Location pos2 = portalsConfig.getLocation(
+                portalPath(name) + ".pos2"
+        );
+
+        Location playerLocation = player.getLocation();
+
+        if (pos1 != null && pos2 != null
+                && pos1.getWorld() != null
+                && pos1.getWorld().equals(pos2.getWorld())
+                && pos1.getWorld().equals(playerLocation.getWorld())) {
+
+            int minX = Math.min(pos1.getBlockX(), pos2.getBlockX());
+            int maxX = Math.max(pos1.getBlockX(), pos2.getBlockX());
+
+            int minY = Math.min(pos1.getBlockY(), pos2.getBlockY());
+            int maxY = Math.max(pos1.getBlockY(), pos2.getBlockY());
+
+            int minZ = Math.min(pos1.getBlockZ(), pos2.getBlockZ());
+            int maxZ = Math.max(pos1.getBlockZ(), pos2.getBlockZ());
+
+            return playerLocation.getBlockX() >= minX
+                    && playerLocation.getBlockX() <= maxX
+                    && playerLocation.getBlockY() >= minY
+                    && playerLocation.getBlockY() <= maxY
+                    && playerLocation.getBlockZ() >= minZ
+                    && playerLocation.getBlockZ() <= maxZ;
+        }
+
+        double activationRadius = getConfig().getDouble(
+                "portal.activation-radius",
+                3.5
+        );
+
+        return playerLocation.distanceSquared(portal)
+                <= activationRadius * activationRadius;
+    }
+
     private void startPortalEffects() {
         new BukkitRunnable() {
             @Override
@@ -165,11 +402,6 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                     return;
                 }
 
-                double activationRadius = getConfig().getDouble(
-                        "portal.activation-radius",
-                        3.5
-                );
-
                 for (String name : portalsConfig
                         .getConfigurationSection("portals")
                         .getKeys(false)) {
@@ -185,10 +417,8 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                     }
 
                     for (Player player : portal.getWorld().getPlayers()) {
-                        if (player.getLocation().distanceSquared(portal)
-                                <= activationRadius * activationRadius) {
-
-                            beginTeleport(player, destination);
+                        if (isInsidePortal(player, name, portal)) {
+                            beginTeleport(player, destination, portal);
                         }
                     }
                 }
@@ -196,7 +426,11 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
         }.runTaskTimer(this, 0L, 10L);
     }
 
-    private void beginTeleport(Player player, Location destination) {
+    private void beginTeleport(
+            Player player,
+            Location destination,
+            Location portal
+    ) {
         UUID uuid = player.getUniqueId();
 
         long now = System.currentTimeMillis();
@@ -216,8 +450,12 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
         Location startLocation = player.getLocation().clone();
 
         player.sendMessage(message(
-                "&dEntering VoidPortal in &f" + delay + " &dseconds..."
+                "&dEntering VoidPortal in &f"
+                        + delay
+                        + " &dseconds..."
         ));
+
+        PortalEffect.spawnActivation(portal, 3.0);
 
         if (getConfig().getBoolean("settings.sound-effect", true)) {
             player.playSound(
@@ -298,6 +536,58 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
 
         if (args.length == 0) {
             sendHelp(player);
+            return true;
+        }
+
+        // /vportal <name> pset
+        if (args.length >= 2
+                && args[1].equalsIgnoreCase("pset")) {
+
+            String name = args[0].toLowerCase(Locale.ROOT);
+
+            if (!name.matches("[a-z0-9_-]+")) {
+                player.sendMessage(message(
+                        "&cPortal name can only use letters, numbers, _ and -."
+                ));
+                return true;
+            }
+
+            if (!portalExists(name)) {
+                portalsConfig.set(
+                        portalPath(name) + ".location",
+                        player.getLocation()
+                );
+
+                portalsConfig.set(
+                        portalPath(name) + ".outer-radius",
+                        16.0
+                );
+
+                portalsConfig.set(
+                        portalPath(name) + ".inner-radius",
+                        2.5
+                );
+
+                savePortals();
+            }
+
+            selectionPortal.put(player.getUniqueId(), name);
+            firstCorner.remove(player.getUniqueId());
+
+            player.getInventory().addItem(createSelector());
+
+            player.sendMessage(message(
+                    "&dVoid Portal Selector received!"
+            ));
+
+            player.sendMessage(message(
+                    "&eLeft-click the first corner."
+            ));
+
+            player.sendMessage(message(
+                    "&eRight-click the opposite corner."
+            ));
+
             return true;
         }
 
@@ -385,8 +675,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 );
 
                 savePortals();
-
-                player.sendMessage(message(
+                                player.sendMessage(message(
                         "&dPortals &f" + first
                                 + " &dand &f" + second
                                 + " &dare now connected!"
@@ -413,9 +702,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 try {
                     radius = Double.parseDouble(args[2]);
                 } catch (NumberFormatException exception) {
-                    player.sendMessage(message(
-                            "&cRadius must be a number!"
-                    ));
+                    player.sendMessage(message("&cRadius must be a number!"));
                     return true;
                 }
 
@@ -431,9 +718,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                         radius
                 );
 
-                double innerRadius = getInnerRadius(name);
-
-                if (innerRadius >= radius) {
+                if (getInnerRadius(name) >= radius) {
                     portalsConfig.set(
                             portalPath(name) + ".inner-radius",
                             Math.max(0.5, radius - 0.5)
@@ -442,11 +727,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
 
                 savePortals();
 
-                player.sendMessage(message(
-                        "&aOuter ring size for &f" + name
-                                + " &ais now &f" + radius
-                                + " &ablocks."
-                ));
+                player.sendMessage(message("&aOuter radius updated!"));
             }
 
             case "innersize" -> {
@@ -469,17 +750,13 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 try {
                     radius = Double.parseDouble(args[2]);
                 } catch (NumberFormatException exception) {
-                    player.sendMessage(message(
-                            "&cRadius must be a number!"
-                    ));
+                    player.sendMessage(message("&cRadius must be a number!"));
                     return true;
                 }
 
-                double outerRadius = getOuterRadius(name);
-
-                if (radius < 0.5 || radius >= outerRadius) {
+                if (radius < 0.5 || radius >= getOuterRadius(name)) {
                     player.sendMessage(message(
-                            "&cInner radius must be at least 0.5 and smaller than the outer ring!"
+                            "&cInner radius must be smaller than outer radius!"
                     ));
                     return true;
                 }
@@ -491,11 +768,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
 
                 savePortals();
 
-                player.sendMessage(message(
-                        "&aInner ring size for &f" + name
-                                + " &ais now &f" + radius
-                                + " &ablocks."
-                ));
+                player.sendMessage(message("&aInner radius updated!"));
             }
 
             case "remove" -> {
@@ -586,6 +859,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
 
     private void sendHelp(Player player) {
         player.sendMessage(message("&dVoidPortal Commands"));
+        player.sendMessage(message("&f/vportal <name> pset"));
         player.sendMessage(message("&f/portal create <name>"));
         player.sendMessage(message("&f/portal link <portal1> <portal2>"));
         player.sendMessage(message("&f/portal size <name> <radius>"));
@@ -595,4 +869,4 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
         player.sendMessage(message("&f/portal list"));
         player.sendMessage(message("&f/portal reload"));
     }
-}
+        }
