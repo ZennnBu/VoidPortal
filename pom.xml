@@ -8,11 +8,11 @@
 
     <groupId>me.voidportal</groupId>
     <artifactId>VoidPortal</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>VoidPortal</name>
-    <description>Animated Purple Portal Plugin</description>
+    <description>A customizable animated portal plugin for Paper</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
