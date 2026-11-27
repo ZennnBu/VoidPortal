@@ -1,14 +1,13 @@
-
 package me.voidportal;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Sound;
-import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -25,31 +24,49 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public final class VoidPortal extends JavaPlugin
-        implements CommandExecutor, Listener {
+        implements CommandExecutor, Listener, TabCompleter {
 
     private File portalsFile;
     private YamlConfiguration portalsConfig;
-
     private NamespacedKey selectorKey;
 
     private final Map<UUID, Long> teleportCooldown = new HashMap<>();
+    private final Set<UUID> teleporting = new HashSet<>();
     private final Map<UUID, String> selectionPortal = new HashMap<>();
     private final Map<UUID, Location> firstCorner = new HashMap<>();
 
     private long animationTick = 0L;
+
+    private static final List<String> COMMANDS = Arrays.asList(
+            "create",
+            "link",
+            "size",
+            "innersize",
+            "remove",
+            "setdestination",
+            "list",
+            "reload",
+            "spawn",
+            "glow",
+            "holo"
+    );
+
+    private static final List<String> COLORS = Arrays.asList(
+            "black", "dark_blue", "dark_green",
+            "dark_aqua", "dark_red", "dark_purple",
+            "gold", "gray", "dark_gray",
+            "blue", "green", "aqua",
+            "red", "light_purple", "yellow", "white"
+    );
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
 
         selectorKey = new NamespacedKey(this, "portal_selector");
-
         portalsFile = new File(getDataFolder(), "portals.yml");
 
         if (!portalsFile.exists()) {
@@ -66,6 +83,7 @@ public final class VoidPortal extends JavaPlugin
 
         if (getCommand("portal") != null) {
             getCommand("portal").setExecutor(this);
+            getCommand("portal").setTabCompleter(this);
         }
 
         Bukkit.getPluginManager().registerEvents(this, this);
@@ -81,6 +99,7 @@ public final class VoidPortal extends JavaPlugin
     public void onDisable() {
         savePortals();
         teleportCooldown.clear();
+        teleporting.clear();
         selectionPortal.clear();
         firstCorner.clear();
     }
@@ -92,6 +111,10 @@ public final class VoidPortal extends JavaPlugin
         );
 
         return ChatColor.translateAlternateColorCodes('&', prefix + text);
+    }
+
+    private String color(String text) {
+        return ChatColor.translateAlternateColorCodes('&', text);
     }
 
     private void savePortals() {
@@ -142,9 +165,7 @@ public final class VoidPortal extends JavaPlugin
             return false;
         }
 
-        ItemMeta meta = item.getItemMeta();
-
-        return meta.getPersistentDataContainer().has(
+        return item.getItemMeta().getPersistentDataContainer().has(
                 selectorKey,
                 PersistentDataType.BYTE
         );
@@ -157,10 +178,14 @@ public final class VoidPortal extends JavaPlugin
 
         ItemMeta meta = axe.getItemMeta();
 
-        meta.setDisplayName(ChatColor.LIGHT_PURPLE
-                + "" + ChatColor.BOLD + "Void Portal Selector");
+        meta.setDisplayName(
+                ChatColor.LIGHT_PURPLE
+                        + ""
+                        + ChatColor.BOLD
+                        + "Void Portal Selector"
+        );
 
-        meta.setLore(java.util.Arrays.asList(
+        meta.setLore(Arrays.asList(
                 ChatColor.GRAY + "Left-click: First corner",
                 ChatColor.GRAY + "Right-click: Second corner",
                 ChatColor.DARK_PURPLE + "AimVortex"
@@ -225,14 +250,10 @@ public final class VoidPortal extends JavaPlugin
                     clicked.clone()
             );
 
-            player.sendMessage(message(
-                    "&aFirst corner selected!"
-            ));
-
+            player.sendMessage(message("&aFirst corner selected!"));
             player.sendMessage(message(
                     "&eNow right-click the opposite corner."
             ));
-
             return;
         }
 
@@ -433,6 +454,10 @@ public final class VoidPortal extends JavaPlugin
     ) {
         UUID uuid = player.getUniqueId();
 
+        if (teleporting.contains(uuid)) {
+            return;
+        }
+
         long now = System.currentTimeMillis();
         long cooldownUntil = teleportCooldown.getOrDefault(uuid, 0L);
 
@@ -440,7 +465,7 @@ public final class VoidPortal extends JavaPlugin
             return;
         }
 
-        teleportCooldown.put(uuid, now + 6000L);
+        teleporting.add(uuid);
 
         int delay = Math.max(
                 0,
@@ -448,12 +473,6 @@ public final class VoidPortal extends JavaPlugin
         );
 
         Location startLocation = player.getLocation().clone();
-
-        player.sendMessage(message(
-                "&dEntering VoidPortal in &f"
-                        + delay
-                        + " &dseconds..."
-        ));
 
         PortalEffect.spawnActivation(portal, 3.0);
 
@@ -472,6 +491,7 @@ public final class VoidPortal extends JavaPlugin
             @Override
             public void run() {
                 if (!player.isOnline()) {
+                    teleporting.remove(uuid);
                     cancel();
                     return;
                 }
@@ -485,6 +505,7 @@ public final class VoidPortal extends JavaPlugin
                             "&cTeleport cancelled because you moved!"
                     ));
 
+                    teleporting.remove(uuid);
                     cancel();
                     return;
                 }
@@ -495,6 +516,11 @@ public final class VoidPortal extends JavaPlugin
                     player.sendMessage(message(
                             "&dWelcome to the other side of the Void!"
                     ));
+
+                    teleportCooldown.put(
+                            uuid,
+                            System.currentTimeMillis() + 5000L
+                    );
 
                     if (getConfig().getBoolean(
                             "settings.sound-effect",
@@ -508,13 +534,20 @@ public final class VoidPortal extends JavaPlugin
                         );
                     }
 
+                    teleporting.remove(uuid);
                     cancel();
                     return;
                 }
 
+                player.sendActionBar(color(
+                        "&a&lTeleporting in "
+                                + secondsLeft
+                                + " Seconds"
+                ));
+
                 secondsLeft--;
             }
-        }.runTaskTimer(this, 20L, 20L);
+        }.runTaskTimer(this, 0L, 20L);
     }
 
     @Override
@@ -539,7 +572,6 @@ public final class VoidPortal extends JavaPlugin
             return true;
         }
 
-        // /vportal <name> pset
         if (args.length >= 2
                 && args[1].equalsIgnoreCase("pset")) {
 
@@ -576,17 +608,9 @@ public final class VoidPortal extends JavaPlugin
 
             player.getInventory().addItem(createSelector());
 
-            player.sendMessage(message(
-                    "&dVoid Portal Selector received!"
-            ));
-
-            player.sendMessage(message(
-                    "&eLeft-click the first corner."
-            ));
-
-            player.sendMessage(message(
-                    "&eRight-click the opposite corner."
-            ));
+            player.sendMessage(message("&dVoid Portal Selector received!"));
+            player.sendMessage(message("&eLeft-click the first corner."));
+            player.sendMessage(message("&eRight-click the opposite corner."));
 
             return true;
         }
@@ -601,6 +625,11 @@ public final class VoidPortal extends JavaPlugin
                 }
 
                 String name = args[1].toLowerCase(Locale.ROOT);
+
+                if (!name.matches("[a-z0-9_-]+")) {
+                    player.sendMessage(message("&cInvalid portal name!"));
+                    return true;
+                }
 
                 if (portalExists(name)) {
                     player.sendMessage(message("&cThat portal already exists!"));
@@ -624,9 +653,7 @@ public final class VoidPortal extends JavaPlugin
 
                 savePortals();
 
-                player.sendMessage(message(
-                        "&aPortal created: &f" + name
-                ));
+                player.sendMessage(message("&aPortal created: &f" + name));
             }
 
             case "link" -> {
@@ -658,9 +685,7 @@ public final class VoidPortal extends JavaPlugin
                 Location secondLocation = getPortalLocation(second);
 
                 if (firstLocation == null || secondLocation == null) {
-                    player.sendMessage(message(
-                            "&cPortal location is missing!"
-                    ));
+                    player.sendMessage(message("&cPortal location is missing!"));
                     return true;
                 }
 
@@ -675,7 +700,8 @@ public final class VoidPortal extends JavaPlugin
                 );
 
                 savePortals();
-                                player.sendMessage(message(
+
+                player.sendMessage(message(
                         "&dPortals &f" + first
                                 + " &dand &f" + second
                                 + " &dare now connected!"
@@ -726,7 +752,6 @@ public final class VoidPortal extends JavaPlugin
                 }
 
                 savePortals();
-
                 player.sendMessage(message("&aOuter radius updated!"));
             }
 
@@ -767,7 +792,6 @@ public final class VoidPortal extends JavaPlugin
                 );
 
                 savePortals();
-
                 player.sendMessage(message("&aInner radius updated!"));
             }
 
@@ -787,9 +811,7 @@ public final class VoidPortal extends JavaPlugin
                 portalsConfig.set(portalPath(name), null);
                 savePortals();
 
-                player.sendMessage(message(
-                        "&cPortal removed: &f" + name
-                ));
+                player.sendMessage(message("&cPortal removed: &f" + name));
             }
 
             case "setdestination" -> {
@@ -851,10 +873,115 @@ public final class VoidPortal extends JavaPlugin
                 ));
             }
 
+            case "spawn" -> {
+                if (args.length < 2) {
+                    player.sendMessage(message(
+                            "&c/vportal spawn <name> pset"
+                    ));
+                    return true;
+                }
+
+                String name = args[1].toLowerCase(Locale.ROOT);
+
+                if (args.length >= 3
+                        && args[2].equalsIgnoreCase("pset")) {
+                    player.performCommand("vportal " + name + " pset");
+                    return true;
+                }
+
+                sendHelp(player);
+            }
+
+            case "glow" -> {
+                player.sendMessage(message(
+                        "&eUse: &f/vportal spawn glow add color <color>"
+                ));
+            }
+
+            case "holo" -> {
+                player.sendMessage(message(
+                        "&eHologram commands will be added in the next step."
+                ));
+            }
+
             default -> sendHelp(player);
         }
 
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(
+            CommandSender sender,
+            Command command,
+            String alias,
+            String[] args
+    ) {
+        if (!sender.hasPermission("voidportal.admin")) {
+            return Collections.emptyList();
+        }
+
+        List<String> suggestions = new ArrayList<>();
+
+        if (args.length == 1) {
+            suggestions.addAll(COMMANDS);
+
+            if (portalsConfig.getConfigurationSection("portals") != null) {
+                suggestions.addAll(
+                        portalsConfig.getConfigurationSection("portals")
+                                .getKeys(false)
+                );
+            }
+        } else if (args.length == 2) {
+            String first = args[0].toLowerCase(Locale.ROOT);
+
+            if (first.equals("link")) {
+                suggestions.addAll(getPortalNames());
+            } else if (first.equals("size")
+                    || first.equals("innersize")
+                    || first.equals("remove")
+                    || first.equals("setdestination")) {
+                suggestions.addAll(getPortalNames());
+            } else if (first.equals("spawn")) {
+                suggestions.add("glow");
+                suggestions.add("holo");
+            }
+        } else if (args.length == 3
+                && args[0].equalsIgnoreCase("spawn")
+                && args[1].equalsIgnoreCase("glow")) {
+            suggestions.add("add");
+            suggestions.add("remove");
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("spawn")
+                && args[1].equalsIgnoreCase("glow")
+                && args[2].equalsIgnoreCase("add")) {
+            suggestions.add("color");
+        } else if (args.length == 5
+                && args[0].equalsIgnoreCase("spawn")
+                && args[1].equalsIgnoreCase("glow")
+                && args[2].equalsIgnoreCase("add")
+                && args[3].equalsIgnoreCase("color")) {
+            suggestions.addAll(COLORS);
+        }
+
+        String input = args[args.length - 1].toLowerCase(Locale.ROOT);
+
+        suggestions.removeIf(value ->
+                !value.toLowerCase(Locale.ROOT).startsWith(input)
+        );
+
+        return suggestions;
+    }
+
+    private List<String> getPortalNames() {
+        if (portalsConfig.getConfigurationSection("portals") == null) {
+            return Collections.emptyList();
+        }
+
+        return new ArrayList<>(
+                portalsConfig.getConfigurationSection("portals")
+                        .getKeys(false)
+        );
     }
 
     private void sendHelp(Player player) {
@@ -868,5 +995,6 @@ public final class VoidPortal extends JavaPlugin
         player.sendMessage(message("&f/portal setdestination <name>"));
         player.sendMessage(message("&f/portal list"));
         player.sendMessage(message("&f/portal reload"));
+        player.sendMessage(message("&f/vportal spawn glow add color <color>"));
     }
         }
