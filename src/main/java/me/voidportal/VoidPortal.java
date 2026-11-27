@@ -3,11 +3,8 @@ package me.voidportal;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Color;
 import org.bukkit.Location;
-import org.bukkit.Particle;
 import org.bukkit.Sound;
-import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -52,18 +49,17 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
             getCommand("portal").setExecutor(this);
         }
 
-        startPortalAnimation();
+        startPortalEffects();
         startPortalDetection();
 
         getLogger().info("VoidPortal enabled!");
-        getLogger().info("Created by AimVortex");
+        getLogger().info("Author: AimVortex");
     }
 
     @Override
     public void onDisable() {
         savePortals();
         teleportCooldown.clear();
-        getLogger().info("VoidPortal disabled.");
     }
 
     private String message(String text) {
@@ -92,11 +88,11 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
         return portalsConfig.getLocation("portals." + name + ".destination");
     }
 
-    private void startPortalAnimation() {
+    private void startPortalEffects() {
         new BukkitRunnable() {
             @Override
             public void run() {
-                animationTick += 2L;
+                animationTick += 5L;
 
                 if (!getConfig().getBoolean("settings.particle-effect", true)) {
                     return;
@@ -105,20 +101,6 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 if (portalsConfig.getConfigurationSection("portals") == null) {
                     return;
                 }
-
-                double radius = getConfig().getDouble("portal.radius", 2.0);
-                int red = getConfig().getInt("portal.red", 170);
-                int green = getConfig().getInt("portal.green", 0);
-                int blue = getConfig().getInt("portal.blue", 255);
-
-                Color color = Color.fromRGB(
-                        Math.max(0, Math.min(255, red)),
-                        Math.max(0, Math.min(255, green)),
-                        Math.max(0, Math.min(255, blue))
-                );
-
-                Particle.DustOptions dust =
-                        new Particle.DustOptions(color, 1.5F);
 
                 for (String name : portalsConfig
                         .getConfigurationSection("portals")
@@ -130,89 +112,10 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                         continue;
                     }
 
-                    World world = portal.getWorld();
-
-                    // Outer glowing ring
-                    for (int i = 0; i < 36; i++) {
-                        double angle = (Math.PI * 2.0 * i / 36.0)
-                                + animationTick * 0.025;
-
-                        double x = Math.cos(angle) * radius;
-                        double z = Math.sin(angle) * radius;
-
-                        Location ringPoint = portal.clone().add(
-                                x,
-                                0.12 + Math.sin(animationTick * 0.08 + angle) * 0.04,
-                                z
-                        );
-
-                        world.spawnParticle(
-                                Particle.DUST,
-                                ringPoint,
-                                1,
-                                0,
-                                0,
-                                0,
-                                0,
-                                dust
-                        );
-                    }
-
-                    // Animated swirling vortex
-                    for (int i = 0; i < 24; i++) {
-                        double progress = i / 24.0;
-
-                        double angle = progress * Math.PI * 2.0
-                                + animationTick * 0.07;
-
-                        double swirlRadius = radius * 0.65;
-
-                        double x = Math.cos(angle) * swirlRadius;
-                        double z = Math.sin(angle) * swirlRadius;
-
-                        double y = 0.25
-                                + progress * 2.0
-                                + Math.sin(animationTick * 0.08 + angle) * 0.15;
-
-                        Location swirlPoint = portal.clone().add(x, y, z);
-
-                        world.spawnParticle(
-                                Particle.PORTAL,
-                                swirlPoint,
-                                2,
-                                0.08,
-                                0.08,
-                                0.08,
-                                0.02
-                        );
-
-                        world.spawnParticle(
-                                Particle.DUST,
-                                swirlPoint,
-                                1,
-                                0,
-                                0,
-                                0,
-                                0,
-                                dust
-                        );
-                    }
-
-                    // Magical aura above the portal
-                    Location aura = portal.clone().add(0, 1.0, 0);
-
-                    world.spawnParticle(
-                            Particle.REVERSE_PORTAL,
-                            aura,
-                            8,
-                            0.5,
-                            0.8,
-                            0.5,
-                            0.02
-                    );
+                    PortalEffect.spawn(portal, animationTick);
                 }
             }
-        }.runTaskTimer(this, 0L, 2L);
+        }.runTaskTimer(this, 0L, 5L);
     }
 
     private void startPortalDetection() {
@@ -223,7 +126,10 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                     return;
                 }
 
-                double radius = getConfig().getDouble("portal.radius", 2.0);
+                double activationRadius = getConfig().getDouble(
+                        "portal.activation-radius",
+                        3.5
+                );
 
                 for (String name : portalsConfig
                         .getConfigurationSection("portals")
@@ -241,7 +147,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
 
                     for (Player player : portal.getWorld().getPlayers()) {
                         if (player.getLocation().distanceSquared(portal)
-                                <= radius * radius) {
+                                <= activationRadius * activationRadius) {
 
                             beginTeleport(player, name, destination);
                         }
@@ -265,17 +171,17 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
             return;
         }
 
-        teleportCooldown.put(uuid, now + 5000L);
+        teleportCooldown.put(uuid, now + 6000L);
 
         int delay = Math.max(
                 0,
                 getConfig().getInt("settings.teleport-delay", 3)
         );
 
-        Location startingLocation = player.getLocation().clone();
+        Location startLocation = player.getLocation().clone();
 
         player.sendMessage(message(
-                "&dTeleporting in &f" + delay + " &dseconds..."
+                "&dEntering VoidPortal in &f" + delay + " &dseconds..."
         ));
 
         if (getConfig().getBoolean("settings.sound-effect", true)) {
@@ -298,7 +204,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 }
 
                 if (getConfig().getBoolean("settings.cancel-on-move", true)
-                        && player.getLocation().distanceSquared(startingLocation)
+                        && player.getLocation().distanceSquared(startLocation)
                         > 0.25) {
 
                     player.sendMessage(message(
@@ -310,10 +216,12 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 }
 
                 if (secondsLeft <= 0) {
-                    player.teleport(destination);
+                    Location safeDestination = destination.clone();
+
+                    player.teleport(safeDestination);
 
                     player.sendMessage(message(
-                            "&aYou have been teleported!"
+                            "&dWelcome to the other side of the Void!"
                     ));
 
                     if (getConfig().getBoolean("settings.sound-effect", true)) {
@@ -347,17 +255,12 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
         }
 
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("Only players can use this command.");
+            sender.sendMessage("This command can only be used in-game.");
             return true;
         }
 
         if (args.length == 0) {
-            player.sendMessage(message("&dVoidPortal Commands"));
-            player.sendMessage(message("&f/portal create <name>"));
-            player.sendMessage(message("&f/portal remove <name>"));
-            player.sendMessage(message("&f/portal setdestination <name>"));
-            player.sendMessage(message("&f/portal list"));
-            player.sendMessage(message("&f/portal reload"));
+            sendHelp(player);
             return true;
         }
 
@@ -372,6 +275,11 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
 
                 String name = args[1].toLowerCase();
 
+                if (portalsConfig.contains("portals." + name)) {
+                    player.sendMessage(message("&cThat portal already exists!"));
+                    return true;
+                }
+
                 portalsConfig.set(
                         "portals." + name + ".location",
                         player.getLocation()
@@ -381,6 +289,62 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
 
                 player.sendMessage(message(
                         "&aPortal created: &f" + name
+                ));
+            }
+
+            case "link" -> {
+                if (args.length < 3) {
+                    player.sendMessage(message(
+                            "&c/portal link <portal1> <portal2>"
+                    ));
+                    return true;
+                }
+
+                String first = args[1].toLowerCase();
+                String second = args[2].toLowerCase();
+
+                if (first.equals(second)) {
+                    player.sendMessage(message(
+                            "&cYou cannot link a portal to itself!"
+                    ));
+                    return true;
+                }
+
+                if (!portalsConfig.contains("portals." + first)
+                        || !portalsConfig.contains("portals." + second)) {
+
+                    player.sendMessage(message(
+                            "&cBoth portals must exist first!"
+                    ));
+                    return true;
+                }
+
+                Location firstLocation = getPortalLocation(first);
+                Location secondLocation = getPortalLocation(second);
+
+                if (firstLocation == null || secondLocation == null) {
+                    player.sendMessage(message(
+                            "&cPortal location is missing!"
+                    ));
+                    return true;
+                }
+
+                portalsConfig.set(
+                        "portals." + first + ".destination",
+                        secondLocation
+                );
+
+                portalsConfig.set(
+                        "portals." + second + ".destination",
+                        firstLocation
+                );
+
+                savePortals();
+
+                player.sendMessage(message(
+                        "&dPortals &f" + first
+                                + " &dand &f" + second
+                                + " &dare now connected!"
                 ));
             }
 
@@ -416,9 +380,7 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 String name = args[1].toLowerCase();
 
                 if (!portalsConfig.contains("portals." + name)) {
-                    player.sendMessage(message(
-                            "&cPortal not found! Create it first."
-                    ));
+                    player.sendMessage(message("&cPortal not found!"));
                     return true;
                 }
 
@@ -459,11 +421,20 @@ public final class VoidPortal extends JavaPlugin implements CommandExecutor {
                 ));
             }
 
-            default -> player.sendMessage(message(
-                    "&cUnknown command. Use /portal"
-            ));
+            default -> sendHelp(player);
         }
 
         return true;
     }
-}
+
+    private void sendHelp(Player player) {
+        player.sendMessage(message("&dVoidPortal Commands"));
+        player.sendMessage(message("&f/portal create <name>"));
+        player.sendMessage(message("&f/portal link <portal1> <portal2>"));
+        player.sendMessage(message("&f/portal remove <name>"));
+        player.sendMessage(message("&f/portal setdestination <name>"));
+        player.sendMessage(message("&f/portal list"));
+        player.sendMessage(message("&f/portal reload"));
+    }
+                        }
+                                            
