@@ -5,6 +5,7 @@ import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
+import org.bukkit.configuration.file.FileConfiguration;
 
 public final class PortalEffect {
 
@@ -16,41 +17,68 @@ public final class PortalEffect {
             return;
         }
 
+        VoidPortal plugin = VoidPortal.getPlugin(VoidPortal.class);
+        FileConfiguration config = plugin.getConfig();
+
         World world = center.getWorld();
 
-        // Galaxy colors
-        Particle.DustOptions purple = new Particle.DustOptions(
-                Color.fromRGB(155, 0, 255),
-                2.0F
+        // Configurable ring sizes
+        double outerRadius = config.getDouble(
+                "portal.outer-radius",
+                16.0
         );
 
-        Particle.DustOptions brightPurple = new Particle.DustOptions(
-                Color.fromRGB(220, 80, 255),
+        double innerRadius = config.getDouble(
+                "portal.inner-radius",
+                2.5
+        );
+
+        int particleCount = config.getInt(
+                "portal.particle-count",
+                220
+        );
+
+        int red = config.getInt("portal.red", 255);
+        int green = config.getInt("portal.green", 225);
+        int blue = config.getInt("portal.blue", 190);
+
+        // Keep settings within safe limits
+        outerRadius = Math.max(3.0, Math.min(outerRadius, 64.0));
+        innerRadius = Math.max(0.5, Math.min(innerRadius, outerRadius - 1.0));
+        particleCount = Math.max(40, Math.min(particleCount, 360));
+
+        Particle.DustOptions outerDust = new Particle.DustOptions(
+                Color.fromRGB(red, green, blue),
                 1.5F
         );
 
-        Particle.DustOptions white = new Particle.DustOptions(
-                Color.fromRGB(255, 240, 255),
+        Particle.DustOptions innerDust = new Particle.DustOptions(
+                Color.fromRGB(190, 90, 255),
+                1.4F
+        );
+
+        Particle.DustOptions glowDust = new Particle.DustOptions(
+                Color.fromRGB(255, 250, 230),
                 1.2F
         );
 
-        // Giant outer ring
-        double outerRadius = 16.0;
+        // Ground-level ring center
+        Location groundCenter = center.clone().add(0, 0.15, 0);
 
-        for (int i = 0; i < 180; i++) {
-            double angle = (Math.PI * 2.0 * i / 180.0)
-                    + tick * 0.006;
+        // Large irregular outer ring
+        for (int i = 0; i < particleCount; i++) {
+            double angle = Math.PI * 2.0 * i / particleCount;
 
-            double irregularity =
-                    Math.sin(angle * 7.0 + tick * 0.03) * 0.25
-                    + Math.cos(angle * 13.0) * 0.15;
+            double wave1 = Math.sin(angle * 5.0 + tick * 0.01) * 0.45;
+            double wave2 = Math.cos(angle * 9.0 - tick * 0.008) * 0.25;
+            double wave3 = Math.sin(angle * 13.0) * 0.12;
 
-            double radius = outerRadius + irregularity;
+            double radius = outerRadius + wave1 + wave2 + wave3;
 
             double x = Math.cos(angle) * radius;
             double z = Math.sin(angle) * radius;
 
-            Location point = center.clone().add(x, 0.15, z);
+            Location point = groundCenter.clone().add(x, 0, z);
 
             world.spawnParticle(
                     Particle.DUST,
@@ -60,33 +88,37 @@ public final class PortalEffect {
                     0,
                     0,
                     0,
-                    purple
+                    outerDust
             );
 
-            if (i % 3 == 0) {
+            // Bright accents around the perimeter
+            if (i % 4 == 0) {
                 world.spawnParticle(
                         Particle.END_ROD,
                         point,
                         1,
-                        0.03,
-                        0.02,
-                        0.03,
+                        0.015,
+                        0.025,
+                        0.015,
                         0
                 );
             }
         }
 
-        // Inner glowing ring
-        double innerRadius = 4.0;
+        // Small circular ring around the center
+        int innerCount = 64;
 
-        for (int i = 0; i < 72; i++) {
-            double angle = Math.PI * 2.0 * i / 72.0
-                    - tick * 0.025;
+        for (int i = 0; i < innerCount; i++) {
+            double angle = Math.PI * 2.0 * i / innerCount
+                    - tick * 0.018;
 
-            double x = Math.cos(angle) * innerRadius;
-            double z = Math.sin(angle) * innerRadius;
+            double radius = innerRadius
+                    + Math.sin(angle * 4.0 + tick * 0.02) * 0.08;
 
-            Location point = center.clone().add(x, 0.25, z);
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
+
+            Location point = groundCenter.clone().add(x, 0.08, z);
 
             world.spawnParticle(
                     Particle.DUST,
@@ -96,30 +128,35 @@ public final class PortalEffect {
                     0,
                     0,
                     0,
-                    brightPurple
+                    innerDust
             );
         }
 
-        // Galaxy spiral
-        for (int arm = 0; arm < 3; arm++) {
-            for (int i = 0; i < 90; i++) {
-                double progress = i / 90.0;
+        // Subtle energy vortex at the center
+        for (int i = 0; i < 24; i++) {
+            double progress = i / 24.0;
 
-                double angle = progress * Math.PI * 4.0
-                        + arm * (Math.PI * 2.0 / 3.0)
-                        + tick * 0.035;
+            double angle = progress * Math.PI * 4.0
+                    + tick * 0.035;
 
-                double radius = progress * 4.0;
+            double radius = progress * innerRadius * 0.65;
 
-                double x = Math.cos(angle) * radius;
-                double z = Math.sin(angle) * radius;
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
 
-                Location point = center.clone().add(
-                        x,
-                        0.3 + Math.sin(angle + tick * 0.04) * 0.12,
-                        z
-                );
+            Location point = groundCenter.clone().add(x, 0.12, z);
 
+            world.spawnParticle(
+                    Particle.PORTAL,
+                    point,
+                    1,
+                    0.03,
+                    0.04,
+                    0.03,
+                    0.01
+            );
+
+            if (i % 4 == 0) {
                 world.spawnParticle(
                         Particle.DUST,
                         point,
@@ -128,45 +165,9 @@ public final class PortalEffect {
                         0,
                         0,
                         0,
-                        brightPurple
+                        glowDust
                 );
-
-                if (i % 5 == 0) {
-                    world.spawnParticle(
-                            Particle.PORTAL,
-                            point,
-                            2,
-                            0.08,
-                            0.08,
-                            0.08,
-                            0.02
-                    );
-                }
             }
         }
-
-        // Bright galaxy center
-        Location core = center.clone().add(0, 0.35, 0);
-
-        world.spawnParticle(
-                Particle.END_ROD,
-                core,
-                12,
-                0.35,
-                0.12,
-                0.35,
-                0.01
-        );
-
-        world.spawnParticle(
-                Particle.DUST,
-                core,
-                20,
-                0.4,
-                0.1,
-                0.4,
-                0,
-                white
-        );
     }
 }
